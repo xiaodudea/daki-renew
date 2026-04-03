@@ -58,12 +58,45 @@ async function sendTelegramNotification(message, screenshotPath) {
 
     await page.waitForTimeout(5000);
     
-    console.log("正在访问 Daki Dashboard...");
+console.log("正在访问 Daki Dashboard...");
     await page.goto('https://dash.daki.cc/dashboard', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(3000); // 等待可能的页面跳转
 
-    console.log("进入 Servers 界面...");
-    await page.click('text="Servers"');
+    // 【新增逻辑】处理 Discord 授权页面 (OAuth)
+    if (page.url().includes('oauth2/authorize')) {
+      console.log("检测到 Discord 授权拦截，正在自动处理...");
+      try {
+        // 1. 处理截图中的 "Keep Scrolling..." 按钮（适配中英文）
+        const keepScrollingBtn = page.locator('button:has-text("Keep Scrolling"), button:has-text("继续滚动"), button:has-text("向下滚动")').first();
+        // 如果按钮存在且可见，点击它来展开完整权限列表
+        if (await keepScrollingBtn.isVisible({ timeout: 5000 })) {
+          console.log("点击继续滚动...");
+          await keepScrollingBtn.click();
+          await page.waitForTimeout(1000); // 等待按钮文字变成 Authorize
+        }
+
+        // 2. 点击 "Authorize" (授权) 按钮
+        const authorizeBtn = page.locator('button:has-text("Authorize"), button:has-text("授权")').first();
+        await authorizeBtn.waitFor({ state: 'visible', timeout: 5000 });
+        console.log("点击授权按钮...");
+        await authorizeBtn.click();
+
+        // 3. 等待成功跳回 Daki Dashboard
+        console.log("等待重定向回 Daki...");
+        await page.waitForURL('**/dashboard', { timeout: 30000 });
+        await page.waitForTimeout(3000); // 等待 Dashboard 彻底渲染
+      } catch (authError) {
+        console.log("自动授权步骤遇到小问题，将强行继续尝试寻找 Servers 菜单: ", authError.message);
+      }
+    }
+
+    console.log("当前页面URL:", page.url());
+    console.log("准备进入 Servers 界面...");
+    
+    // 【优化】使用更稳定的查找方式
+    const serversLocator = page.locator('text=/servers/i').first();
+    await serversLocator.waitFor({ state: 'visible', timeout: 15000 });
+    await serversLocator.click();
     await page.waitForTimeout(2000);
 
     const processRenewal = async (stepCount) => {
