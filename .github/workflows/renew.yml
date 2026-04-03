@@ -1,0 +1,30 @@
+name: Daily Daki Server Renewal
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天 UTC 时间 0:00 执行（北京时间早上 8:00）
+  workflow_dispatch: # 允许在 GitHub 网页上手动触发测试
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装依赖
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: 运行自动化脚本
+        env:
+          DISCORD_EMAIL: ${{ secrets.DISCORD_EMAIL }}
+          DISCORD_PASSWORD: ${{ secrets.DISCORD_PASSWORD }}
+        run: npm run start
