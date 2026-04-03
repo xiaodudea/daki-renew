@@ -5,51 +5,47 @@ const fs = require('fs');
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const TG_CHAT_ID = process.env.TG_CHAT_ID;
 
-// 代理配置
-const PROXY_SERVER = process.env.PROXY_SERVER;     // 例如: socks5://1.2.3.4:1080 或 http://1.2.3.4:8080
-const PROXY_USERNAME = process.env.PROXY_USERNAME; // 可选
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD; // 可选
-
+// 发送 Telegram 消息和截图 (与之前相同)
 async function sendTelegramNotification(message, screenshotPath) {
-  if (!TG_BOT_TOKEN || !TG_CHAT_ID) {
-    console.log("未配置 TG 通知，跳过发送: ", message);
-    return;
-  }
-  
+  if (!TG_BOT_TOKEN || !TG_CHAT_ID) return;
   const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`;
   const formData = new FormData();
   formData.append('chat_id', TG_CHAT_ID);
   formData.append('caption', message);
-  
   if (screenshotPath && fs.existsSync(screenshotPath)) {
-    const fileBuffer = fs.readFileSync(screenshotPath);
-    const blob = new Blob([fileBuffer]);
-    formData.append('photo', blob, 'screenshot.png');
+    formData.append('photo', new Blob([fs.readFileSync(screenshotPath)]), 'screenshot.png');
   }
-
   try {
     const response = await fetch(url, { method: 'POST', body: formData });
-    if (!response.ok) console.error("Telegram 通知发送失败:", await response.text());
-    else console.log("Telegram 通知发送成功！");
+    if (!response.ok) console.error("TG通知失败:", await response.text());
   } catch (error) {
-    console.error("发送 TG 消息异常:", error);
+    console.error("TG请求异常:", error);
   }
 }
 
 (async () => {
-  // 配置浏览器启动选项
   let launchOptions = { headless: true };
   
-  // 如果配置了代理，则注入代理设置
-  if (PROXY_SERVER) {
-    launchOptions.proxy = { server: PROXY_SERVER };
-    if (PROXY_USERNAME && PROXY_PASSWORD) {
-      launchOptions.proxy.username = PROXY_USERNAME;
-      launchOptions.proxy.password = PROXY_PASSWORD;
+  // 核心优化：单变量解析代理 URL
+  const proxyUrlString = process.env.PROXY_URL;
+  if (proxyUrlString) {
+    try {
+      const proxyUrl = new URL(proxyUrlString);
+      // 重组纯地址部分 (protocol + host)
+      launchOptions.proxy = { server: `${proxyUrl.protocol}//${proxyUrl.host}` };
+      
+      // 如果 URL 中包含账号密码，自动提取并解码
+      if (proxyUrl.username || proxyUrl.password) {
+        launchOptions.proxy.username = decodeURIComponent(proxyUrl.username);
+        launchOptions.proxy.password = decodeURIComponent(proxyUrl.password);
+      }
+      console.log(`[网络] 已启用代理: ${launchOptions.proxy.server} (含身份验证: ${!!proxyUrl.username})`);
+    } catch (e) {
+      console.error("[网络] PROXY_URL 格式有误，请参考: socks5://user:pass@ip:port", e.message);
+      process.exit(1);
     }
-    console.log(`[网络] 已启用代理服务器: ${PROXY_SERVER}`);
   } else {
-    console.log(`[网络] 未检测到代理配置，使用直连模式。`);
+    console.log(`[网络] 未配置代理，使用直连模式。`);
   }
 
   const browser = await chromium.launch(launchOptions);
@@ -106,15 +102,15 @@ async function sendTelegramNotification(message, screenshotPath) {
     await processRenewal(2);
 
     await page.screenshot({ path: screenshotPath });
-    await sendTelegramNotification(`✅ Daki 服务器每日 ${successCount} 次续期已成功完成！`, screenshotPath);
+    await sendTelegramNotification(`✅ Daki 每日 ${successCount} 次续期已成功完成！`, screenshotPath);
 
   } catch (error) {
     console.error("自动化流程出错:", error);
     try {
       await page.screenshot({ path: screenshotPath });
-      await sendTelegramNotification(`❌ Daki 服务器续期失败！\n错误信息: ${error.message}`, screenshotPath);
-    } catch (screenshotError) {
-      await sendTelegramNotification(`❌ Daki 续期严重失败！\n无法截取画面。\n错误: ${error.message}`, null);
+      await sendTelegramNotification(`❌ Daki 续期失败！\n错误: ${error.message}`, screenshotPath);
+    } catch (e) {
+      await sendTelegramNotification(`❌ Daki 严重失败！无法截图。\n错误: ${error.message}`, null);
     }
     process.exit(1);
   } finally {
