@@ -2,7 +2,8 @@ name: Daily Daki Server Renewal
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+  # 每天 UTC 时间凌晨 1 点执行 (北京时间早上 9 点)
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 jobs:
