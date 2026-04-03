@@ -127,45 +127,67 @@ async function sendTelegramNotification(message, screenshotPath) {
     await serversLocator.click();
     await page.waitForTimeout(2000);
 
-// ==========================================
-    // 服务器续期循环流程 (超强容错版)
+    // ==========================================
+    // 服务器续期循环流程 (带跳转验证与重置版本)
     // ==========================================
     const processRenewal = async (stepCount) => {
-        console.log(`开始第 ${stepCount} 次续期流程...`);
+        console.log(`\n=== 开始第 ${stepCount} 次续期流程 ===`);
         
-        // 1. 兼容不同大小写的 Renew 按钮
-        const renewBtn = page.locator('button:has-text("Renew"), button:has-text("RENEW"), button:has-text("renew")').first();
-        await renewBtn.waitFor({ state: 'visible', timeout: 15000 });
-        await renewBtn.click();
-        
-        // 2. 勾选同意并继续
-        console.log("正在勾选同意并点击继续...");
-        await page.waitForTimeout(1000); // 稍微等待弹窗动画加载
-        
-        // 确保勾选框被强制选中
-        const checkbox = page.locator('input[type="checkbox"]').first();
-        await checkbox.check({ force: true }); 
-        
-        // 兼容不同大小写的 Continue 按钮
-        const continueBtn = page.locator('button:has-text("Continue"), button:has-text("CONTINUE"), button:has-text("continue")').first();
-        await continueBtn.click();
-        
-        // 3. 等待倒计时和 Claim 按钮
-        console.log("等待倒计时结束 (最多等待 3 分钟)...");
-        
-        // 使用正则 /claim/i 忽略大小写，匹配任何包含 claim 的按钮
-        const claimButton = page.locator('button', { hasText: /claim/i }).first();
-        
-        // 将超时时间增加到 180 秒 (3分钟)，防止网页卡顿导致倒计时变慢
-        await claimButton.waitFor({ state: 'visible', timeout: 180000 });
-        console.log("发现领取按钮，正在点击...");
-        await claimButton.click({ force: true });
-        
-        console.log(`第 ${stepCount} 次领取成功！`);
-        successCount++;
-        await page.waitForTimeout(4000); // 领完后多等一会儿，让页面状态彻底刷新
-    };
+        try {
+            // 1. 寻找并点击 Renew 按钮
+            const renewBtn = page.locator('button:has-text("Renew"), button:has-text("RENEW"), button:has-text("renew")').first();
+            // 如果 15 秒内找不到 Renew，可能机器已经全续期完毕了
+            await renewBtn.waitFor({ state: 'visible', timeout: 15000 });
+            await renewBtn.click();
+            
+            // 2. 勾选同意并继续
+            console.log("正在勾选同意并点击继续...");
+            await page.waitForTimeout(1000); 
+            
+            const checkbox = page.locator('input[type="checkbox"]').first();
+            await checkbox.check({ force: true }); 
+            
+            const continueBtn = page.locator('button:has-text("Continue"), button:has-text("CONTINUE"), button:has-text("continue")').first();
+            await continueBtn.click();
+            
+            // 3. 【核心验证】等待并检查是否跳转到了专属续期页面
+            console.log("验证页面是否跳转至专属续期界面...");
+            try {
+                // 最多等待 10 秒看 URL 是否会变成包含 renew-page 的地址
+                await page.waitForURL('**/renew-page*', { timeout: 10000 });
+                console.log("✅ 成功跳转至 renew-page！准备监控倒计时...");
+            } catch (navError) {
+                console.log(`⚠️ 未跳转至 renew-page 续期界面 (当前停留在: ${page.url()})。`);
+                console.log(`该服务器暂无需续期或遇到限制，停止本轮等待。`);
+                return; // 直接终止当前这一轮的函数操作，不再执行后面的找 Claim 按钮
+            }
+            
+            // 4. 等待倒计时和 Claim 按钮
+            console.log("等待倒计时结束 (最多等待 3 分钟)...");
+            const claimButton = page.locator('button', { hasText: /claim/i }).first();
+            
+            await claimButton.waitFor({ state: 'visible', timeout: 180000 });
+            console.log("发现领取按钮，正在点击...");
+            await claimButton.click({ force: true });
+            
+            console.log(`🎉 第 ${stepCount} 次领取成功！`);
+            successCount++;
+            await page.waitForTimeout(4000); // 领完后多等一会儿让服务器处理
 
+        } catch (error) {
+            console.log(`第 ${stepCount} 次寻找或操作续期时结束: ${error.message}`);
+        } finally {
+            // 5. 【极其重要】为了不影响下一次循环，强制退回到服务器列表
+            console.log("正在重置页面，准备返回 Servers 界面为下个任务做准备...");
+            await page.goto('https://dash.daki.cc/dashboard', { waitUntil: 'networkidle' });
+            const serversLocator = page.locator('text=/servers/i').first();
+            // 容错处理：如果能找到 Servers 菜单就点击它
+            if (await serversLocator.isVisible({ timeout: 5000 }).catch(() => false)) {
+                await serversLocator.click();
+                await page.waitForTimeout(3000);
+            }
+        }
+    };
     // 依次执行两次续期
     await processRenewal(1);
     await processRenewal(2);
