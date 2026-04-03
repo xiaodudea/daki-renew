@@ -2,8 +2,9 @@ name: Daily Daki Server Renewal
 
 on:
   schedule:
-    - cron: '0 2 * * *'
-  workflow_dispatch:
+    # 每天 UTC 时间凌晨 0 点执行 (北京时间早上 9 点)
+    - cron: '0 1 * * *'
+  workflow_dispatch: # 允许在 GitHub 页面手动点击运行
 
 jobs:
   renew:
@@ -28,7 +29,5 @@ jobs:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
-          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
-          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
-        run: node script.js
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+        run: npm run start
