@@ -1,6 +1,8 @@
 {
   "name": "daki-autorenew",
   "version": "1.0.0",
+  "description": "Daki Server Auto Renewal Script",
+  "main": "script.js",
   "scripts": {
     "start": "node script.js"
   },
