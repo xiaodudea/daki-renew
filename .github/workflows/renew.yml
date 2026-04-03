@@ -2,9 +2,8 @@ name: Daily Daki Server Renewal
 
 on:
   schedule:
-    # 每天 UTC 时间凌晨 0 点执行 (北京时间早上 9 点)
-    - cron: '0 1 * * *'
-  workflow_dispatch: # 允许在 GitHub 页面手动点击运行
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   renew:
@@ -18,6 +17,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: 启动 GOST 代理隧道 (解决浏览器 SOCKS5 认证缺陷)
+        env:
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+        run: |
+          if [ -n "$PROXY_URL" ]; then
+            echo "检测到代理配置，正在启动本地 HTTP 隧道..."
+            wget -q https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
+            gzip -d gost-linux-amd64-2.11.5.gz
+            chmod +x gost-linux-amd64-2.11.5
+            # 将远端认证 SOCKS5 转换为本地 8080 端口的无密码 HTTP 代理
+            ./gost-linux-amd64-2.11.5 -L http://127.0.0.1:8080 -F "$PROXY_URL" &
+            sleep 3 # 等待隧道启动
+          fi
 
       - name: 安装依赖
         run: |
