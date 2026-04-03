@@ -1,34 +1,10 @@
-name: Daily Daki Server Renewal
-
-on:
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
-
-jobs:
-  renew:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 设置 Node.js 环境
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 安装依赖
-        run: |
-          npm install
-          npx playwright install --with-deps chromium
-
-      - name: 运行自动化脚本
-        env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
-          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
-          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
-        run: node script.js
+{
+  "name": "daki-autorenew",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node script.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}
