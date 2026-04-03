@@ -1,0 +1,10 @@
+{
+  "name": "daki-autorenew",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node script.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}
