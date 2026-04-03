@@ -127,27 +127,43 @@ async function sendTelegramNotification(message, screenshotPath) {
     await serversLocator.click();
     await page.waitForTimeout(2000);
 
-    // ==========================================
-    // 服务器续期循环流程
+// ==========================================
+    // 服务器续期循环流程 (超强容错版)
     // ==========================================
     const processRenewal = async (stepCount) => {
         console.log(`开始第 ${stepCount} 次续期流程...`);
-        await page.click('button:has-text("Renew")');
         
-        // 勾选同意并继续
-        await page.check('input[type="checkbox"]'); 
-        await page.click('button:has-text("Continue")');
+        // 1. 兼容不同大小写的 Renew 按钮
+        const renewBtn = page.locator('button:has-text("Renew"), button:has-text("RENEW"), button:has-text("renew")').first();
+        await renewBtn.waitFor({ state: 'visible', timeout: 15000 });
+        await renewBtn.click();
         
-        console.log("等待倒计时结束...");
-        const claimButton = page.locator('button:has-text("Claim")');
+        // 2. 勾选同意并继续
+        console.log("正在勾选同意并点击继续...");
+        await page.waitForTimeout(1000); // 稍微等待弹窗动画加载
         
-        // 等待 Claim 按钮出现并变为可用状态 (最长等待2分钟)
-        await claimButton.waitFor({ state: 'visible', timeout: 120000 });
-        await claimButton.click();
+        // 确保勾选框被强制选中
+        const checkbox = page.locator('input[type="checkbox"]').first();
+        await checkbox.check({ force: true }); 
+        
+        // 兼容不同大小写的 Continue 按钮
+        const continueBtn = page.locator('button:has-text("Continue"), button:has-text("CONTINUE"), button:has-text("continue")').first();
+        await continueBtn.click();
+        
+        // 3. 等待倒计时和 Claim 按钮
+        console.log("等待倒计时结束 (最多等待 3 分钟)...");
+        
+        // 使用正则 /claim/i 忽略大小写，匹配任何包含 claim 的按钮
+        const claimButton = page.locator('button', { hasText: /claim/i }).first();
+        
+        // 将超时时间增加到 180 秒 (3分钟)，防止网页卡顿导致倒计时变慢
+        await claimButton.waitFor({ state: 'visible', timeout: 180000 });
+        console.log("发现领取按钮，正在点击...");
+        await claimButton.click({ force: true });
         
         console.log(`第 ${stepCount} 次领取成功！`);
         successCount++;
-        await page.waitForTimeout(3000); // 等待状态刷新
+        await page.waitForTimeout(4000); // 领完后多等一会儿，让页面状态彻底刷新
     };
 
     // 依次执行两次续期
