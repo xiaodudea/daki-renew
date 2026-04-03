@@ -194,17 +194,17 @@ async function sendTelegramNotification(message, screenshotPath) {
 
     // 任务成功截图及通知
     await page.screenshot({ path: screenshotPath });
-    await sendTelegramNotification(`✅ Daki 服务器每日 ${successCount} 次续期已成功完成！`, screenshotPath);
+    await sendTelegramNotification(`✅ Daki Free Tier 服务器每日 ${successCount} 次续期已成功完成！`, screenshotPath);
 
   } catch (error) {
     console.error("自动化流程出错:", error);
     // 任务失败截图及通知
     try {
       await page.screenshot({ path: screenshotPath });
-      await sendTelegramNotification(`❌ Daki 服务器续期失败！\n错误信息: ${error.message}`, screenshotPath);
+      await sendTelegramNotification(`❌ Daki Free Tier 服务器续期失败！\n错误信息: ${error.message}`, screenshotPath);
     } catch (screenshotError) {
       console.error("截图失败:", screenshotError);
-      await sendTelegramNotification(`❌ Daki 服务器续期严重失败！\n无法截取画面。\n错误信息: ${error.message}`, null);
+      await sendTelegramNotification(`❌ Daki Free Tier 服务器续期严重失败！\n无法截取画面。\n错误信息: ${error.message}`, null);
     }
     process.exit(1);
   } finally {
